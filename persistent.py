@@ -1,35 +1,44 @@
 """
-A simple module for persistent data. When script is changed, run "python3 persisten.py" to clear
+A simple module for persistent data. Before running use, init(globals()) must be called.  When script is changed, run "python3 persisten.py" to clear.
 """
 import atexit
 from pickle import load,dump
 from pathlib import Path
+import inspect,shutil,sys
 
-directory = ".persistent"
-namespace:dict = None # type: ignore awaiting namespace set
+class config:
+    "static class for config"
+    directory = ".persistent"
+    init_with_inspect_stack_hack = False
+    def __setattr__(self, name: str, value):
+        pass
+
+
+__namespace:dict = None # type: ignore awaiting namespace set
+
+if config.init_with_inspect_stack_hack:
+    __namespace = inspect.stack()[1].frame.f_globals
 
 def init(globals):
-    global namespace
-    namespace = globals
+    global __namespace
+    __namespace = globals
 
 if __name__ == "__main__":
-    import shutil
-    shutil.rmtree(directory)
-    import sys
+    shutil.rmtree(config.directory)
     sys.exit()
     
 __persistents = set([])
 #ensure data directory exists
-Path(directory).mkdir(exist_ok=True)
+Path(config.directory).mkdir(exist_ok=True)
 
 def __read_variable(name:str):
-    f = open(directory+"/"+name+".pkl",'rb')
+    f = open(config.directory+"/"+name+".pkl",'rb')
     v = load(f)
     f.close()
     return v
 
 def __save_variable(name:str,var):
-    f = open(directory+"/"+name+".pkl",'wb')
+    f = open(config.directory+"/"+name+".pkl",'wb')
     dump(var,f)
     f.close()
 
@@ -40,12 +49,12 @@ def declare(**kwargs):
     for (name,value) in kwargs.items():
         __persistents.add(name)
         try:
-            namespace[name] = __read_variable(name)
+            __namespace[name] = __read_variable(name)
         except:
-            namespace[name] = value
+            __namespace[name] = value
 
 def on_quit():
     for name in __persistents:
-        __save_variable(name,namespace[name])
+        __save_variable(name,__namespace[name])
 
 atexit.register(on_quit)
