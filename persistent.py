@@ -10,6 +10,8 @@ from pickle import load,dump,dumps
 from pathlib import Path
 import shutil,sys,os,hashlib
 import types
+import fcntl
+from contextlib import contextmanager
 
 class config:
     "static class for config"
@@ -80,6 +82,20 @@ __persistents: dict = {} # name -> namespace the variable lives in
 #ensure data directory exists
 Path(__directory()).mkdir(exist_ok=True,parents=True)
 
+@contextmanager
+def __locked(exclusive: bool):
+    """
+    Hold a Linux advisory lock (flock) over this script's own .persistent/<hash> directory.
+    Shared for reading, exclusive for writing, so concurrently running instances of the
+    same script never see half-written files, while different scripts don't block each other.
+    """
+    fd = os.open(__directory() + "/.lock", os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+        yield
+    finally:
+        os.close(fd) # closing the descriptor releases the lock
+
 def __read_variable(name:str):
     f = open(__directory()+"/"+name+".pkl",'rb')
     v = load(f)
@@ -101,18 +117,22 @@ def declare(**kwargs):
     if namespace is None and config.auto_init:
         # resolve per call, so each declaring module gets its own variables
         namespace = sys._getframe(1).f_globals
-    for (name,value) in kwargs.items():
-        __persistents[name] = namespace
-        try:
-            namespace[name] = __read_variable(name)
-        except:
-            namespace[name] = value
+    with __locked(exclusive=False):
+        for (name,value) in kwargs.items():
+            __persistents[name] = namespace
+            try:
+                namespace[name] = __read_variable(name)
+            except:
+                namespace[name] = value
 
 def __on_quit():
-    for (name,namespace) in __persistents.items():
-        try:
-            __save_variable(name,namespace[name])
-        except:
-            print("problems with pickling " +name +"!",file=sys.stderr)
+    if not __persistents:
+        return
+    with __locked(exclusive=True):
+        for (name,namespace) in __persistents.items():
+            try:
+                __save_variable(name,namespace[name])
+            except:
+                print("problems with pickling " +name +"!",file=sys.stderr)
 
 atexit.register(__on_quit)

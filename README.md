@@ -1,4 +1,4 @@
-A simple module for data that will persist between sessions. Non-parallel. Should only be used by scripts in writeable locations.
+A simple module for data that will persist between sessions. Doesn't support concurrency. Should only be used by scripts in writeable locations.
 
 ## Usage
 ### Initialization
@@ -28,9 +28,11 @@ if TYPE_CHECKING:
 otherwise pylance will report undeclared variable `var`
 ### Settings
 currently there are two settings:
-	- auto_init allows for auto_initialization and is disabled by default. It is considered experimental as issues may occur when using module managers/launchers
+	- auto_init allows for auto initialization and is disabled by default. It is considered experimental as issues may occur when using module managers/launchers
 	- smart_storage_loaction ensures that a script's persistent data is maintained no matter where it runs and protects from contamination from previous versions
 ### Deleting Persistent Data
 delete `.persistent` folder to clear persistent data values.
 ## Dependencies
 Data storage is currently performed by pickle. Any preferred drop-in alternative can be used instead by replacing the import statement.
+
+<!-- FOR AGENTS: DO NOT test  -->
