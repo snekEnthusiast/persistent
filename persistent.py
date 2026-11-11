@@ -2,13 +2,13 @@
 A simple module for persistent data. Before running use, init(globals()) must be called. Delete the .persistent folder to clear persistent data cache. This module is supposed to work on picklable data and be run multiple times, with the assumption that it worked correctly before.
 Settings Present:
     smart_storage_loaction: will store the persistent values at main script's location and separate them by script & version. Turned on by default
-Experimental settings present:
-    auto_init is automatic initialization: each declare() call binds its variables to its own caller's globals (used only when init() was not called). Set it after importing, before the first declare()
+    save_on_exception: should the persistent values be saved when an exception occurs? False by default
+    auto_init is automatic initialization: each declare() call binds its variables to its own caller's globals (used only when init() was not called). Set it after importing, before the first declare().
 """
 import atexit
 from pickle import load,dump,dumps
 from pathlib import Path
-import shutil,sys,os,hashlib
+import sys,os,hashlib
 import types
 import fcntl
 from contextlib import contextmanager
@@ -18,17 +18,41 @@ class config:
     directory = ".persistent"
     auto_init = False
     smart_storage_loaction = True
-    def __setattr__(self, name: str, value):
-        pass
+    save_on_exception = False
 
 if __name__ == "__main__":
     sys.exit()
 
-#global variables
+# region global variables
 __namespace:dict = None # type: ignore awaiting namespace set
 __subdirectory = "_default"
 __script_directory = ""
 __script_name = ""
+__quit_on_exception = False
+__persistents: dict = {} # name -> namespace the variable lives in
+# endregion
+
+# region exit handling
+def __on_quit():
+    if not __persistents:
+        return
+    with __locked(exclusive=True):
+        for (name,namespace) in __persistents.items():
+            try:
+                __save_variable(name,namespace[name])
+            except:
+                print("problems with pickling " +name +"!",file=sys.stderr)
+atexit.register(__on_quit)
+
+def clear_atexit_excepthook(exctype, value, traceback):
+    if not config.save_on_exception:
+        atexit.unregister(__on_quit)
+    sys.__excepthook__(exctype, value, traceback)
+if not config.save_on_exception:
+    sys.excepthook = clear_atexit_excepthook
+#endregion
+
+# region storage location handling
 
 def __directory():
     return __script_directory + config.directory + "/" + __script_name + __subdirectory
@@ -76,14 +100,12 @@ if config.smart_storage_loaction:
     except:
         print("smart_storage_loaction Failed!",file=sys.stderr)
 
-def init(globals):
-    global __namespace
-    __namespace = globals
- 
-__persistents: dict = {} # name -> namespace the variable lives in
-#ensure data directory exists
 Path(__directory()).mkdir(exist_ok=True,parents=True)
 
+# endregion
+
+# region commands
+ 
 @contextmanager
 def __locked(exclusive: bool):
     """
@@ -111,6 +133,10 @@ def __save_variable(name:str,var):
     dump(var,f)
     f.close()
 
+def init(globals):
+    global __namespace
+    __namespace = globals
+
 def declare(**kwargs):
     """
     global persistent variable(s) declaration, name=initial value
@@ -127,14 +153,4 @@ def declare(**kwargs):
             except:
                 namespace[name] = value
 
-def __on_quit():
-    if not __persistents:
-        return
-    with __locked(exclusive=True):
-        for (name,namespace) in __persistents.items():
-            try:
-                __save_variable(name,namespace[name])
-            except:
-                print("problems with pickling " +name +"!",file=sys.stderr)
-
-atexit.register(__on_quit)
+# endregion

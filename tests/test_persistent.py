@@ -48,3 +48,13 @@ def test_concurrent_access_no_corruption():
     outputs = [p.communicate() for p in procs]
     for out, err in outputs:
         assert out == "OK\n", (out, err)
+
+def test_no_save_on_exception():
+    for expected in ("1\n","1\n"):
+        result = result = run("dummy6.py", capture_output=True)
+        assert result.stdout == expected
+    
+def test_save_on_exception():
+    for expected in ("1\n","2\n"):
+        result = result = run("dummy7.py", capture_output=True)
+        assert result.stdout == expected
