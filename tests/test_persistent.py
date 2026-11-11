@@ -5,8 +5,8 @@ import sys
 import shutil
 from pathlib import Path
 
-# run everything relative to the project root, regardless of where pytest/VSCode was started
-ROOT = Path(__file__).resolve().parent.parent
+# run everything relative to the project root
+ROOT = Path(__file__).resolve().parent.parent / 'tests' / 'resources'
 
 def run(script, **kw):
     return subprocess.run([sys.executable, script], cwd=ROOT, text=True, **kw)

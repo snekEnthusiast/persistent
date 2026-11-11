@@ -28,9 +28,10 @@ if __name__ == "__main__":
 __namespace:dict = None # type: ignore awaiting namespace set
 __subdirectory = "_default"
 __script_directory = ""
+__script_name = ""
 
 def __directory():
-    return __script_directory + config.directory + "/" + __subdirectory
+    return __script_directory + config.directory + "/" + __script_name + __subdirectory
 
 def _caller_file():
     main = sys.modules.get("__main__")
@@ -71,6 +72,7 @@ if config.smart_storage_loaction:
         #print("path",path)
         __subdirectory = digest
         __script_directory = '/'.join(path.split('/')[:-1]) + "/"
+        __script_name = path.split('/')[-1][:-3] + "/"
     except:
         print("smart_storage_loaction Failed!",file=sys.stderr)
 
